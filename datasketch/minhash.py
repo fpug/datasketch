@@ -60,7 +60,7 @@ class MinHash(object):
         elif permutations is not None:
             self.load_permutations(permutations)
         else:
-            permutations = self.generate_permutations(seed, num_perm)
+            permutations = MinHash.generate_permutations(seed, num_perm)
             self.load_permutations(permutations)
 
     def _init_hashvalues(self, num_perm):
@@ -69,13 +69,14 @@ class MinHash(object):
     def _parse_hashvalues(self, hashvalues):
         return np.array(hashvalues, dtype=np.uint64)
 
+    @staticmethod
     def generate_permutations(self, seed, num_perm):
         '''
         Generates the permutations given the seed; the method is called by the init,
-        but can also be called to unfinalize a MinHash
+        but can also be used to generate a new set of permutations to counter a finalize.
         '''
         generator = random.Random()
-        generator.seed(self.seed)
+        generator.seed(seed)
         # Create parameters for a random bijective permutation function
         # that maps a 32-bit hash value to another 32-bit hash value.
         # http://en.wikipedia.org/wiki/Universal_hashing
