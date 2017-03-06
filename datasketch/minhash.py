@@ -143,8 +143,8 @@ class MinHash(object):
 
     def finalize(self):
         '''
-        Finalizes the MinHash, forbidding further updates but greatly the deserialization
-        performance.  It can be undone by manually calling generate_permutations or load_permutations
+        Finalizes the MinHash, forbidding further updates but greatly speeding up the deserialization
+        performance.  It can be undone by calling generate_permutations or load_permutations.
         '''
         self.permutations=None
         self.finalized=True
