@@ -60,7 +60,8 @@ class MinHash(object):
         elif permutations is not None:
             self.load_permutations(permutations)
         else:
-            self.generate_permutations(seed, num_perm)
+            permutations = generate_permutations(seed, num_perm)
+            self.load_permutations(permutations)
 
     def _init_hashvalues(self, num_perm):
         return np.ones(num_perm, dtype=np.uint64)*_max_hash
@@ -78,10 +79,10 @@ class MinHash(object):
         # Create parameters for a random bijective permutation function
         # that maps a 32-bit hash value to another 32-bit hash value.
         # http://en.wikipedia.org/wiki/Universal_hashing
-        self.permutations = np.array([(generator.randint(1, _mersenne_prime),
-                                       generator.randint(0, _mersenne_prime))
-                                      for _ in range(num_perm)], dtype=np.uint64).T
-        self.finalized=False
+        permutations = np.array([(generator.randint(1, _mersenne_prime),
+                                  generator.randint(0, _mersenne_prime))
+                                  for _ in range(num_perm)], dtype=np.uint64).T
+        return permutations
 
     def load_permutations(self, permutations):
         '''
