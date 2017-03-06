@@ -70,7 +70,7 @@ class MinHash(object):
         return np.array(hashvalues, dtype=np.uint64)
 
     @staticmethod
-    def generate_permutations(self, seed, num_perm):
+    def generate_permutations(seed, num_perm):
         '''
         Generates the permutations given the seed; the method is called by the init,
         but can also be used to generate a new set of permutations to counter a finalize.
