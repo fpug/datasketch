@@ -30,6 +30,8 @@ class MinHash(object):
     hashlib hashes.
     `hashvalues` and `permutations` can be specified for faster
     initialization using existing state from another MinHash.
+    Note that it is the caller's responsibility to make sure the `seed` 
+    parameter is consistent with the `permutations`.
     '''
 
     __slots__ = ('permutations', 'hashvalues', 'seed', 'hashobj')
