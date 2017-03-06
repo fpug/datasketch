@@ -60,7 +60,7 @@ class MinHash(object):
         elif permutations is not None:
             self.load_permutations(permutations)
         else:
-            permutations = generate_permutations(seed, num_perm)
+            permutations = self.generate_permutations(seed, num_perm)
             self.load_permutations(permutations)
 
     def _init_hashvalues(self, num_perm):
