@@ -10,8 +10,6 @@ import numpy as np
 
 class WeightedMinHash(object):
     
-    __slots__ = ('hashvalues', 'seed')
-
     def __init__(self, seed, hashvalues):
         '''
         Create a WeightedMinHash object given the seed
