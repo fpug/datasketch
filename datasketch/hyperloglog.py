@@ -193,68 +193,20 @@ class HyperLogLog(object):
         h = cls(reg=reg)
         return h
 
-    def bytesize(self):
-        '''
-        Return the size of the HyperLogLog in bytes.
-        '''
-        # Since p is no larger than 64, use 8 bits
-        p_size = struct.calcsize('B')
-        # Each register value is no larger than 64, use 8 bits
-        # TODO: is there a way to use 5 bits instead of 8 bits
-        # to store integer in Python?
-        reg_val_size = struct.calcsize('B')
-        return p_size + reg_val_size * self.m
-
-    def serialize(self, buf):
-        '''
-        Serialize this HyperLogLog into bytes, store in the `buf`.
-        This is more efficient than using pickle.dumps on the object.
-        '''
-        if len(buf) < self.bytesize():
-            raise ValueError("The buffer does not have enough space\
-                    for holding this HyperLogLog.")
-        fmt = 'B%dB' % self.m
-        struct.pack_into(fmt, buf, 0, self.p, *self.reg)
-
-    @classmethod
-    def deserialize(cls, buf):
-        '''
-        Reconstruct a HyperLogLog from bytes in `buf`.
-        This is more efficient than using the pickle.loads on the pickled
-        bytes.
-        '''
-        size = struct.calcsize('B')
-        try:
-            p = struct.unpack_from('B', buf, 0)[0]
-        except TypeError:
-            p = struct.unpack_from('B', buffer(buf), 0)[0]
-        h = cls(p)
-        offset = size
-        try:
-            h.reg = np.array(struct.unpack_from('%dB' % h.m,
-                buf, offset), dtype=np.int8)
-        except TypeError:
-            h.reg = np.array(struct.unpack_from('%dB' % h.m,
-                buffer(buf), offset), dtype=np.int8)
-        return h
-
     def __getstate__(self):
         '''
         This function is called when pickling the HyperLogLog object.
         Returns a bytearray which will then be pickled.
-        Note that the bytes returned by the Python pickle.dumps is not
-        the same as the buffer returned by this function.
         '''
-        buf = bytearray(self.bytesize())
-        self.serialize(buf)
+        buf = bytearray(self._bytesize())
+        fmt = 'B%dB' % self.m
+        struct.pack_into(fmt, buf, 0, self.p, *self.reg)
         return buf
 
     def __setstate__(self, buf):
         '''
         This function is called when unpickling the HyperLogLog object.
         Initialize the object with data in the buffer.
-        Note that the input buffer is not the same as the input to the
-        Python pickle.loads function.
         '''
         size = struct.calcsize('B')
         try:
@@ -269,6 +221,37 @@ class HyperLogLog(object):
         except TypeError:
             self.reg = np.array(struct.unpack_from('%dB' % self.m,
                 buffer(buf), offset), dtype=np.int8)
+
+    def _bytesize(self):
+        '''
+        Return the size of the HyperLogLog in bytes.
+        '''
+        # Since p is no larger than 64, use 8 bits
+        p_size = struct.calcsize('B')
+        # Each register value is no larger than 64, use 8 bits
+        # TODO: is there a way to use 5 bits instead of 8 bits
+        # to store integer in Python?
+        reg_val_size = struct.calcsize('B')
+        return p_size + reg_val_size * self.m
+
+    def bytesize(self):
+        '''
+        This function is no longer supported after version 1.0.0.
+        '''
+        raise NotImplementedError("This function is no longer supported after version 1.0.0")
+
+    def serialize(self, buf):
+        '''
+        This function is no longer supported after version 1.0.0.
+        '''
+        raise NotImplementedError("This function is no longer supported after version 1.0.0")
+
+    @classmethod
+    def deserialize(cls, buf):
+        '''
+        This function is no longer supported after version 1.0.0.
+        '''
+        raise NotImplementedError("This function is no longer supported after version 1.0.0")
 
 
 class HyperLogLogPlusPlus(HyperLogLog):

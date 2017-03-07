@@ -74,25 +74,6 @@ class TestHyperLogLog(unittest.TestCase):
         # See benchmarks for the accuracy of the cardinality estimation.
         h.count()
 
-    def test_serialize(self):
-        h = self._class(4, hashobj=FakeHash)
-        buf = bytearray(h.bytesize())
-        h.serialize(buf)
-        self.assertEqual(h.p, struct.unpack_from('B', bytes(buf), 0)[0])
-
-    def test_deserialize(self):
-        h = self._class(4, hashobj=FakeHash)
-        h.update(123)
-        h.update(33)
-        h.update(12)
-        h.update(0xfffffff1)
-        buf = bytearray(h.bytesize())
-        h.serialize(buf)
-        hd = self._class.deserialize(buf)
-        self.assertEqual(hd.p, h.p)
-        self.assertEqual(hd.m, h.m)
-        self.assertTrue(all(i == j for i, j in zip(h.reg, hd.reg)))
-
     def test_pickle(self):
         h = self._class(4, hashobj=FakeHash)
         h.update(123)
