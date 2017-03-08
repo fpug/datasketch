@@ -32,10 +32,10 @@ class MinHash(object):
     initialization using existing state from another MinHash.
     '''
 
-    __slots__ = ('permutations', 'hashvalues', 'seed', 'hashobj', 'finalized')
+    __slots__ = ('permutations', 'hashvalues', 'seed', 'hashobj')
 
-    def __init__(self, num_perm=128, seed=1, hashobj=sha1, 
-            hashvalues=None, permutations=None, finalized=False):
+    def __init__(self, num_perm=128, seed=1, hashobj=sha1,
+            hashvalues=None, permutations=None):
         if num_perm > _hash_range:
             # Because 1) we don't want the size to be too large, and
             # 2) we are using 4 bytes to store the size value
@@ -43,24 +43,25 @@ class MinHash(object):
                     permutation functions" % _hash_range)
         self.seed = seed
         self.hashobj = hashobj
-        self.finalized = finalized
         # Initialize hash values
         if hashvalues is not None:
             self.hashvalues = self._parse_hashvalues(hashvalues)
         else:
             self.hashvalues = self._init_hashvalues(num_perm)
-        # Initialize permutations
-        if finalized:
-        # NB: a MinHash only needs permutations to update; if the MinHash is already in 
-        # its finalized state, not storing permutations will make it more space efficient.
-            if permutations is not None:
-                raise ValueError("Cannot have permutations != None\
-                    and finalized == True at the same time")
-            self.permutations = None
-        elif permutations is not None:
-            self.load_permutations(permutations)
+        # Initalize permutation function parameters
+        if permutations is not None:
+            self.permutations = permutations
         else:
-            self.generate_permutations(seed, num_perm)
+            generator = random.Random()
+            generator.seed(self.seed)
+            # Create parameters for a random bijective permutation function
+            # that maps a 32-bit hash value to another 32-bit hash value.
+            # http://en.wikipedia.org/wiki/Universal_hashing
+            self.permutations = np.array([(generator.randint(1, _mersenne_prime),
+                                           generator.randint(0, _mersenne_prime))
+                                          for _ in range(num_perm)], dtype=np.uint64).T
+        if len(self) != len(self.permutations[0]):
+            raise ValueError("Numbers of hash values and permutations mismatch")
 
     def _init_hashvalues(self, num_perm):
         return np.ones(num_perm, dtype=np.uint64)*_max_hash
@@ -68,36 +69,11 @@ class MinHash(object):
     def _parse_hashvalues(self, hashvalues):
         return np.array(hashvalues, dtype=np.uint64)
 
-    def generate_permutations(self, seed, num_perm):
-        '''
-        Generates the permutations given the seed; the method is called by the init,
-        but can also be called to unfinalize a MinHash
-        '''
-        generator = random.Random()
-        generator.seed(self.seed)
-        # Create parameters for a random bijective permutation function
-        # that maps a 32-bit hash value to another 32-bit hash value.
-        # http://en.wikipedia.org/wiki/Universal_hashing
-        self.permutations = np.array([(generator.randint(1, _mersenne_prime),
-                                       generator.randint(0, _mersenne_prime))
-                                      for _ in range(num_perm)], dtype=np.uint64).T
-        self.finalized=False
-
-    def load_permutations(self, permutations):
-        '''
-        Loads the permutations into the MinHash; the method is called by the init,
-        but can also be called to unfinalize a MinHash
-        NB: providing permutations not matching the seeds will result in inconsistency
-        '''
-        if len(self) != len(self.permutations[0]):
-            raise ValueError("Numbers of hash values and permutations mismatch")
-        self.permutations = permutations
-        self.finalized=False
-
     def __len__(self):
         '''
         Return the size of the MinHash
         '''
+        #print(locals())
         return len(self.hashvalues)
 
     def __eq__(self, other):
@@ -133,21 +109,10 @@ class MinHash(object):
         '''
         Update the Minhash with a new data value in bytes.
         '''
-        if self.permutations is None:
-            raise ValueError("the MinHash doesn't store permutations,\
-                    so it can't be updated")
         hv = struct.unpack('<I', self.hashobj(b).digest()[:4])[0]
         a, b = self.permutations
         phv = np.bitwise_and((a * hv + b) % _mersenne_prime, np.uint64(_max_hash))
         self.hashvalues = np.minimum(phv, self.hashvalues)
-
-    def finalize(self):
-        '''
-        Finalizes the MinHash, forbidding further updates but greatly the deserialization
-        performance.  It can be undone by manually calling generate_permutations or load_permutations
-        '''
-        self.permutations=None
-        self.finalized=True
 
     def digest(self):
         '''
@@ -201,8 +166,7 @@ class MinHash(object):
         length_size = struct.calcsize('i')
         # Use 4 bytes to store each hash value as we are using the lower 32 bit
         hashvalue_size = struct.calcsize('I')
-        finalized_size = struct.calcsize('?')
-        return seed_size + length_size + len(self) * hashvalue_size + finalized_size
+        return seed_size + length_size + len(self) * hashvalue_size
 
     def serialize(self, buf):
         '''
@@ -212,9 +176,9 @@ class MinHash(object):
         if len(buf) < self.bytesize():
             raise ValueError("The buffer does not have enough space\
                     for holding this MinHash.")
-        fmt = "qi%dI?" % len(self)
+        fmt = "qi%dI" % len(self)
         struct.pack_into(fmt, buf, 0,
-                self.seed, len(self), *self.hashvalues, self.finalized)
+                self.seed, len(self), *self.hashvalues)
 
     @classmethod
     def deserialize(cls, buf):
@@ -232,19 +196,7 @@ class MinHash(object):
             hashvalues = struct.unpack_from('%dI' % num_perm, buf, offset)
         except TypeError:
             hashvalues = struct.unpack_from('%dI' % num_perm, buffer(buf), offset)
-        # the code below is clumsy but was added for backwards-compatibility reasons
-        offset2 = offset + struct.calcsize('%dI' % num_perm)
-        try:
-            finalized = struct.unpack_from('?', buf, offset2)[0]
-        except TypeError:
-            try:
-                finalized = struct.unpack_from('?', buffer(buf), offset2)[0]
-            except struct.error:
-                finalized = False
-        except struct.error:
-            finalized = False
-        return cls(num_perm=num_perm, seed=seed, hashvalues=hashvalues, finalized=finalized)
-
+        return cls(num_perm=num_perm, seed=seed, hashvalues=hashvalues)
 
     def __getstate__(self):
         '''
@@ -254,9 +206,9 @@ class MinHash(object):
         the same as the buffer returned by this function.
         '''
         buf = bytearray(self.bytesize())
-        fmt = "qi%dI?" % len(self)
+        fmt = "qi%dI" % len(self)
         struct.pack_into(fmt, buf, 0,
-                self.seed, len(self), *self.hashvalues, self.finalized)
+                self.seed, len(self), *self.hashvalues)
         return buf
 
     def __setstate__(self, buf):
@@ -275,19 +227,7 @@ class MinHash(object):
             hashvalues = struct.unpack_from('%dI' % num_perm, buf, offset)
         except TypeError:
             hashvalues = struct.unpack_from('%dI' % num_perm, buffer(buf), offset)
-        # the code below is clumsy but was added for backwards-compatibility reasons
-        offset2 = offset + struct.calcsize('%dI' % num_perm)
-        try:
-            finalized = struct.unpack_from('?', buf, offset2)[0]
-        except TypeError:
-            try:
-                finalized = struct.unpack_from('?', buffer(buf), offset2)[0]
-            except struct.error:
-                finalized = False
-        except struct.error:
-            finalized = False
-        self.__init__(num_perm=num_perm, seed=seed, hashvalues=hashvalues, finalized=finalized)
-
+        self.__init__(num_perm=num_perm, seed=seed, hashvalues=hashvalues)
 
     @classmethod
     def union(cls, *mhs):
