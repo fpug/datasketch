@@ -22,7 +22,6 @@ class ImmutableMinHash(MinHash):
         '''
         imh = object.__new__(ImmutableMinHash)
         imh._initialize_slots(*self.__slots__)
-        print('copy!')
         return imh
 
     def update(self, b):
