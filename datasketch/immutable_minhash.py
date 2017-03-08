@@ -9,13 +9,9 @@ class ImmutableMinHash(MinHash):
     __slots__ = ('seed', 'hashvalues', 'hashobj')
 
     def _initialize_slots(self, seed, hashvalues, hashobj):
-        #print('imhere')
-        #print(locals())
         self.seed = seed
         self.hashvalues = self._parse_hashvalues(hashvalues)
         self.hashobj = hashobj
-        #print(locals())
-        #print(self.hash)
 
     def __init__(self, minhash):
         self._initialize_slots(minhash.seed, minhash.hashvalues, minhash.hashobj)
